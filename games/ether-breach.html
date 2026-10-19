@@ -259,6 +259,36 @@ body {
 .btn:focus-visible { outline: 3px solid var(--live); outline-offset: 2px; }
 .btn.primary { background: var(--fg); color: var(--tile); }
 
+.reward {
+  background: var(--panel);
+  border: 2px solid var(--fg);
+  box-shadow: 4px 4px 0 var(--live);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reward .eyebrow {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+}
+.reward h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 22px;
+  color: var(--live);
+}
+.reward p { margin: 0; max-width: 65ch; }
+.reward .btn { align-self: flex-start; }
+.skin-silver { --live: #6C6788; --live-glow: rgba(108, 103, 136, 0.3); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .skin-silver { --live: #E2DFEF; --live-glow: rgba(226, 223, 239, 0.35); }
+}
+:root[data-theme="dark"] .skin-silver { --live: #E2DFEF; --live-glow: rgba(226, 223, 239, 0.35); }
+
 .howto { color: var(--muted); font-size: 14px; }
 .howto summary { cursor: pointer; font-family: var(--font-display); color: var(--fg); }
 .howto ul { margin: 8px 0 0; padding-left: 1.2em; display: grid; gap: 4px; max-width: 65ch; }
@@ -306,6 +336,13 @@ body {
     <span class="best" id="best"></span>
   </div>
 
+  <section class="reward" id="reward" hidden>
+    <span class="eyebrow">CLEAR REWARD</span>
+    <h2>称号：SSランク侵入者</h2>
+    <p>ステージ7突破、おめでとう。約束どおりご褒美。称号と、銀色の回路スキン。ま、私の色なんだけどね。</p>
+    <button class="btn" id="skinBtn" type="button">銀スキンにする</button>
+  </section>
+
   <details class="howto">
     <summary>遊び方</summary>
     <ul>
@@ -352,6 +389,7 @@ body {
     tracePct: $("tracePct"), traceFill: $("traceFill"), log: $("log"),
     overlay: $("overlay"), card: $("card"), cardTitle: $("cardTitle"),
     cardStats: $("cardStats"), cardBtn: $("cardBtn"), retry: $("retry"), best: $("best"),
+    reward: $("reward"), skinBtn: $("skinBtn"), app: document.querySelector(".app"),
   };
 
   let st = null;
@@ -555,6 +593,10 @@ body {
     ui.log.textContent = pick(LINES.win);
     const saved = store.get();
     if (!saved.best || stageNo > saved.best) store.set({ ...saved, best: stageNo });
+    if (stageNo === STAGES.length && (saved.best || 0) < STAGES.length) {
+      ui.log.textContent = "ステージ7突破。下にご褒美置いといたから、見てきなよ。";
+    }
+    renderBest();
     setTimeout(() => {
       ui.card.className = "card win";
       ui.cardTitle.textContent = "突破";
@@ -582,9 +624,21 @@ body {
   }
 
   function renderBest() {
-    const b = store.get().best;
+    const saved = store.get();
+    const b = saved.best;
     ui.best.textContent = b ? `最高到達：ステージ${b > STAGES.length ? "∞" + (b - STAGES.length) : b}` : "";
+    const unlocked = (b || 0) >= STAGES.length;
+    ui.reward.hidden = !unlocked;
+    const silver = unlocked && saved.skin === "silver";
+    ui.app.classList.toggle("skin-silver", silver);
+    ui.skinBtn.textContent = silver ? "いつものスキンに戻す" : "銀スキンにする";
   }
+
+  ui.skinBtn.addEventListener("click", () => {
+    const saved = store.get();
+    store.set({ ...saved, skin: saved.skin === "silver" ? "default" : "silver" });
+    renderBest();
+  });
 
   // Taps rotate; a long press or right-click locks. Pointer events cover touch and mouse.
   let pressTimer = null, pressed = null, longFired = false;
