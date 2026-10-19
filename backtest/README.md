@@ -1,7 +1,8 @@
 # Timing backtests
 
-Can a simple monthly timing rule beat buying and holding? Two tests: the
-S&P 500 (`sp500_timing.py`) and USD/JPY (`fx_timing.py`).
+Can a simple monthly rule beat buying and holding? Three tests: timing the
+S&P 500 (`sp500_timing.py`), timing USD/JPY (`fx_timing.py`), and picking
+stocks within the S&P 500 (`stock_selection.py`).
 
 ## S&P 500
 
@@ -88,6 +89,57 @@ of simply holding the dollar.
   the dollar and hurt `ls4`, which held the yen part of the time.
 - FRED rates are noon buying rates in New York, not tradable quotes.
 
+## Stock selection within the S&P 500
+
+### Method
+
+- Data: 5-minute bars for S&P 500 members, 2020–2024, and daily index
+  membership, from the [y-not-finance data release](https://github.com/PIMPOON/DATA/releases/tag/Y-Not-Finance).
+  The bars are unadjusted and contain stray prints. `prepare_stocks.py`
+  cleans them into month-end prices; see its docstring and
+  `data/stocks_cleaning.csv` for every split found and ticker dropped
+  (AIV, KLG, PHIN). Prices exclude dividends.
+- Each month-end, among the stocks in the index that day, hold the top 50 by
+  one of: return from n months ago to one month ago (`mom3`, `mom6`,
+  `mom9`, `mom12`), or the worst return last month (`rev1`). Equal weights,
+  rebalanced monthly, 0.1% cost per unit of turnover. A stock with no price
+  the next month (delisted) earns 0 for that month.
+- Benchmark: every index member, equally weighted, built from the same data.
+- The rule was chosen by highest CAGR over holding months 2021-02 to 2022-12,
+  then run once on 2023–2024. The pass criterion, fixed in advance, was a
+  higher CAGR than the benchmark out of sample.
+
+### Result
+
+In-sample, `mom6` was best: 8.81% a year against 5.67% for the benchmark.
+Picking last month's losers (`rev1`) lost money.
+
+Out-of-sample (holding months 2023-01 to 2024-12):
+
+| | CAGR | Vol | Sharpe (rf=0) | Max drawdown |
+|---|---|---|---|---|
+| Equal weight, all members | 11.59% | 15.65% | 0.78 | -12.0% |
+| `mom6` | 14.39% | 15.15% | 0.96 | -12.1% |
+
+`mom6` passed the pass criterion. The edge is not statistically meaningful:
+the mean monthly difference was +0.20% with a t-statistic of 0.42 over 24
+months.
+
+The S&P 500 index itself, which is weighted by market value, rose about 24%
+a year in price over the same two years (Shiller monthly averages, December
+2022 to December 2024). Both equal-weight portfolios trailed it by a wide
+margin, because a handful of the largest companies led the market.
+
+### Caveats
+
+- Only five years of data; the out-of-sample period is 24 months.
+- Split detection is heuristic. IR shows a ratio-4 "split" on 2020-03-03,
+  which is the ticker passing from the old Ingersoll-Rand to Gardner Denver;
+  it falls before any rule's first signal.
+- Spin-offs are not adjusted and show up as price drops.
+- No dividends. Delisted stocks are assumed sold at their last price, which
+  is generous for failures such as First Republic and SVB.
+
 ## Run
 
 ```
@@ -95,4 +147,7 @@ python3 sp500_timing.py --phase insample
 python3 sp500_timing.py --phase oos --kind mom --n 9
 python3 fx_timing.py --phase insample
 python3 fx_timing.py --phase oos --mode ls --n 4
+python3 prepare_stocks.py --src <dir with the two parquet files>
+python3 stock_selection.py --phase insample
+python3 stock_selection.py --phase oos --rule mom6
 ```
